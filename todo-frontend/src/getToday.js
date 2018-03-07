@@ -1,0 +1,21 @@
+function getToday() {
+  const d = new Date()
+  var month = {
+    1: 'January',
+    2: 'February',
+    3: 'March',
+    4: 'April',
+    5: 'May',
+    6: 'June',
+    7: 'July',
+    8: 'August',
+    9: 'September',
+    10: 'October',
+    11: 'November',
+    12: 'December'
+  }
+  const today = `${month[d.getMonth() + 1]} ${d.getDate()}, ${d.getFullYear()}`
+  return today
+}
+
+export default getToday 
