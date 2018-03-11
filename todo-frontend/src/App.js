@@ -1,36 +1,109 @@
 import React, { Component } from 'react'
+import { Dropdown, DropdownToggle, DropdownMenu, DropdownItem } from 'reactstrap';
+
 // import logo from './logo.svg'
 import './App.css'
 import logo from './todo.svg'
 import TodoAddBar from './TodoAddBar.js'
 import TodoList from './TodoList.js'
 import getToday from './getToday.js'
+import Authentication from './Authentication.js'
+import axios from 'axios'
 
 
 class App extends Component {
   constructor() {
     super()
     this.state = {
+      isLoggedIn: false,
+      token: null,
       todoList: [
-        { id: 1, task: 'Install Todo App', completeBy: null, completed: null, isComplete: false, isCleared: false },
-        { id: 2, task: 'Finish Assignment 5', completeBy: null, completed: null, isComplete: false, isCleared: false }
-      ]
+        { id: 1, task: 'Install Todo App', completeBy: null, completed: null, isComplete: false, isCleared: false }
+      ],
+      dropdownOpen: false,
+      fname: 'You are not logged in!'
     }
   }
 
-  addToList = task => { //handleNewTodo???
+  toggle = () => {
     this.setState({
-      todoList: this.state.todoList.concat(task) // Using concat to clean code. 
+      dropdownOpen: !this.state.dropdownOpen
     })
   }
 
+  addToList = task => { //handleNewTodo???
+    axios({
+      url: 'http://localhost:8181/addtodo',
+      method: 'POST',
+      headers: {
+        'Authorization': this.state.token
+      },
+      data: {
+        task: task
+      }
+    }).then(response => {
+      // console.log(response)
+      axios({
+        url: 'http://localhost:8181/usertodos',
+        method: 'GET',
+        headers: {
+          'Authorization': this.state.token
+        }
+      })
+        .then(response => {
+          this.setState({
+            todoList: response.data.todos
+          })
+        })
+        .catch(error => {
+          console.log(error)
+        })
+    }).catch(error => {
+      console.log(error)
+    })
+    // this.setState({
+    //   todoList: this.state.todoList.concat(task) // Using concat to clean code. 
+    // })
+  }
+
   toggleComplete = item => { //handleCompleted???
-    let updatedList = this.state.todoList
-    let index = updatedList.indexOf((item))
-    updatedList[index].isComplete = !updatedList[index].isComplete
-    updatedList[index].completed === null ? updatedList[index].completed = getToday() : updatedList[index].completed = null
-    this.setState({
-      todoList: updatedList
+    // let updatedList = this.state.todoList
+    // let index = updatedList.indexOf((item))
+    // updatedList[index].isComplete = !updatedList[index].isComplete
+    // updatedList[index].completed === null ? updatedList[index].completed = getToday() : updatedList[index].completed = null
+    // item.isComplete = !item.isComplete
+    console.log(item.isComplete)
+    axios({
+      url: 'http://localhost:8181/updatetodo',
+      method: 'POST',
+      headers: {
+        'Authorization': this.state.token
+      },
+      data: {
+        _id: item._id,
+        task: item.task,
+        completeBy: item.completeBy,
+        completed: !item.isComplete ? getToday() : null,
+        isComplete: !item.isComplete,
+        isCleared: item.isCleared
+      }
+    }).then(response => {
+      console.log(response)
+      axios({
+        url: 'http://localhost:8181/usertodos',
+        method: 'GET',
+        headers: {
+          'Authorization': this.state.token
+        }
+      })
+        .then(response => {
+          this.setState({
+            todoList: response.data.todos
+          })
+        })
+        .catch(error => {
+          console.log(error)
+        })
     })
   }
 
@@ -43,6 +116,33 @@ class App extends Component {
     })
   }
 
+  clearCompleted = () => {
+    axios({
+      url: 'http://localhost:8181/clearcompleted',
+      method: 'POST',
+      headers: {
+        'Authorization': this.state.token
+      }
+    }).then(response => {
+      console.log(response)
+      axios({
+        url: 'http://localhost:8181/usertodos',
+        method: 'GET',
+        headers: {
+          'Authorization': this.state.token
+        }
+      })
+        .then(response => {
+          this.setState({
+            todoList: response.data.todos
+          })
+        })
+        .catch(error => {
+          console.log(error)
+        })
+    })
+  }
+
   updateTask = (item, newTask) => {
     let updatedList = this.state.todoList
     let index = updatedList.indexOf((item))
@@ -52,17 +152,59 @@ class App extends Component {
     })
   }
 
+  loginUser = (token) => {
+    this.setState({
+      isLoggedIn: true,
+      token: token
+    })
+    axios({
+      url: 'http://localhost:8181/usertodos',
+      method: 'GET',
+      headers: {
+        'Authorization': token
+      }
+    })
+      .then(response => {
+        console.log(response.data)
+        this.setState({
+          todoList: response.data.todos
+        })
+      })
+      .catch(error => {
+        console.log(error)
+      })
+    
+  }
+
+  logoutUser = () => {
+    this.setState({
+      isLoggedIn: false,
+      token: null,
+      fname: 'You are not logged in!'
+    })
+  }
+
+  updateName = (fname) => {
+    this.setState({
+      fname
+    })
+  }
+
   componentWillUpdate() {
     localStorage.setItem('todos', JSON.stringify(this.state.todoList))
   }
 
   componentWillMount() {
-    let todoList = JSON.parse(localStorage.getItem('todos'))
-    if(todoList) {
-      this.setState({
-        todoList: todoList
-      })
+    const { token } = this.state
+    if(token) {
+
     }
+    // let todoList = JSON.parse(localStorage.getItem('todos'))
+    // if(todoList) {
+    //   this.setState({
+    //     todoList: todoList
+    //   })
+    // }
   }
 
   render() {
@@ -76,20 +218,36 @@ class App extends Component {
         backgroundColor: '#1F22A4'
       }
     }
-    const {todoList} = this.state
+    const {todoList, isLoggedIn} = this.state
     return (
       <div className="App container-fluid">
         <header style={styles.banner}>
           <img src={logo}
                style={styles.logo}
                alt="logo" />
+          <Dropdown isOpen={this.state.dropdownOpen} toggle={this.toggle} style={ {position: 'absolute', top: '12px', right: '25px'} }>
+            <DropdownToggle caret>
+              {this.state.fname}
+            </DropdownToggle>
+            {!isLoggedIn ? '' : (
+            <DropdownMenu>
+              <DropdownItem onClick={this.logoutUser} >Sign Out</DropdownItem>
+            </DropdownMenu>) }
+          </Dropdown>
         </header>
-        <TodoAddBar lastID={todoList[todoList.length-1].id}
-                    addToList={this.addToList} />
-        <TodoList todoList={todoList}
-                  toggleComplete={this.toggleComplete}
-                  setCleared={this.setCleared}
-                  updateTask={this.updateTask} />
+        {!isLoggedIn ?
+          <Authentication loginUser={this.loginUser} updateName={this.updateName} /> 
+          : 
+          <div>
+            <TodoAddBar lastID={todoList[todoList.length-1].id}
+                        addToList={this.addToList} />
+            <TodoList todoList={todoList}
+                      toggleComplete={this.toggleComplete}
+                      setCleared={this.setCleared}
+                      updateTask={this.updateTask} 
+                      clearCompleted={this.clearCompleted} />
+          </div>
+          }
       </div>
     )
   }

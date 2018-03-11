@@ -13,15 +13,16 @@ class TodoAddBar extends Component {
 
   handleSubmit = () => {
     if(this.state.task !== '') {
-      let newTask = {
-        id: this.props.lastID + 1,
-        task: this.state.task,
-        completeBy: null,
-        completed: null,
-        isComplete: false,
-        isCleared: false
-      }
-      this.props.addToList(newTask)
+      // let newTask = {
+      //   id: this.props.lastID + 1,
+      //   task: this.state.task,
+      //   completeBy: null,
+      //   completed: null,
+      //   isComplete: false,
+      //   isCleared: false
+      // }
+      this.props.addToList(this.state.task)
+      // this.props.addToList(newTask)
       this.setState({
         task: '',
         isEmptyOnSubmit: false

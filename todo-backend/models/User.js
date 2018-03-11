@@ -3,12 +3,16 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
+
 // Create a schema.
 const userSchema = new Schema({
   fname: String,
   lname: String,
-  email: String,
-  todos: JSON,
+  username: {
+    type: String,
+    unique: true
+  },
+  hash: String,
   created_at: Date,
   updated_at: Date
 });
@@ -31,11 +35,11 @@ userSchema.pre('save', function(next) {
 });
 
 
-userSchema.methods.summary = function() {
-  // Construct and return summary.
-  const summary = this.name + "\n" + this.email
-  return summary;
-}
+// userSchema.methods.summary = function() {
+//   // Construct and return summary.
+//   const summary = this.name + "\n" + this.email
+//   return summary;
+// }
 
 // Create a model using schema.
 const User = mongoose.model('User', userSchema);

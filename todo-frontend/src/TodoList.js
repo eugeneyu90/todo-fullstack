@@ -14,6 +14,7 @@ class TodoList extends Component {
 
   clearCompleted = () => {
     // Goes through each item in todoList using map function and if item is checked as completed -> run setCleared function.
+    this.props.clearCompleted()
     this.props.todoList.map(item => (item.isComplete === true) ? this.props.setCleared(item) : null)
     this.setState({ 
       disableClear: true,
@@ -45,7 +46,8 @@ class TodoList extends Component {
     let selectedList
     // Filter list into new array to be mapped
     viewSelected === 'Active' &&
-      (selectedList = todoList.filter((item) => { return item.isCleared === false }))
+      // (selectedList = todoList.filter((item) => { return item.isCleared === false }))
+      (selectedList = todoList.filter((item) => { return item.isComplete === false }))
     
     viewSelected === 'Completed' &&
     (selectedList = todoList.filter((item) => { return item.isCleared === true || item.isComplete === true }))    
@@ -53,12 +55,13 @@ class TodoList extends Component {
     viewSelected === 'All' && 
       (selectedList = todoList) 
     
-    const disableClear = selectedList.every((item) => { return item.isComplete === false || item.isCleared === true })
-    const activeNum = todoList.reduce((acc, cur) => { return acc + !cur.isCleared }, 0)
-    const completedNum = todoList.reduce((acc, cur) => { return acc + (cur.isComplete && cur.isCleared) }, 0)
+    // const disableClear = selectedList.every((item) => { return item.isComplete === false || item.isCleared === true })
+    const disableClear = selectedList.every((item) => { return item.isComplete === true })
+    const activeNum = todoList.reduce((acc, cur) => { return acc + !cur.isComplete }, 0)
+    const completedNum = todoList.reduce((acc, cur) => { return acc + (cur.isComplete) }, 0)
     // const completedNum = todoList.reduce((acc, cur) => { return acc + cur.isComplete}, 0)
     const itemsToDisplay = selectedList.map((item) => 
-      <Todo key={item.id}
+      <Todo key={item._id}
             item={item}
             toggle={this.props.toggleComplete}
             checkCompleted={this.checkCompleted}
@@ -106,7 +109,7 @@ class TodoList extends Component {
                     color="success" 
                     style={styles.buttonFont}
                     onClick={this.clearCompleted} 
-                    disabled={disableClear || viewSelected === 'Completed'}>
+                    disabled={viewSelected === 'Active' || viewSelected === 'All'}>
               Clear Completed
             </Button>
           </ButtonGroup>
@@ -145,28 +148,28 @@ class Todo extends Component {
   }
 
   shouldComponentUpdate() {
-    console.log(`shouldComponentUpdate returns true`);
+    // console.log(`shouldComponentUpdate returns true`);
     return true
   }
 
   componentDidUpdate(prevProps, prevState) {
-    console.log(`ComponentDidUpdate:  prevState = `)
-    console.log(prevState)
+    // console.log(`ComponentDidUpdate:  prevState = `)
+    // console.log(prevState)
 
-    this.state.editOn && this.state.editOn !== prevState.editOn ? this.textInput.focus() || this.textInput.select() : console.log('editOn is false')
+    this.state.editOn && this.state.editOn !== prevState.editOn ? this.textInput.focus() || this.textInput.select() : ''
     
   }
   
   componentWillUpdate(nextProps, nextState) {
-    console.log(`ComponentWillUpdate:  nextState = `)
-    console.log(nextState)
+    // console.log(`ComponentWillUpdate:  nextState = `)
+    // console.log(nextState)
   }
   
 
 
 
   render() {
-    const { id, task, isComplete, isCleared, completed } = this.props.item
+    const { _id, task, isComplete, isCleared, completed } = this.props.item
     const styles = {
       // Include readOnly attribute with no change in styling
       noGreyOut: {
@@ -219,7 +222,7 @@ class Todo extends Component {
     const showLineThrough = isComplete ? styles.completed : false 
     const editOrNot = this.state.editOn ? styles.canEdit : styles.cannotEdit
     const showClearHint = isComplete && !isCleared
-    const itemId = `item${id}`
+    const itemId = `item${_id}`
     const customTask = isComplete ? `${task} ---- Done ${completed}` : task
 
     return (
@@ -241,12 +244,12 @@ class Todo extends Component {
                  onChange={this.updateTask}
                  // Bootstrap Input uses innerRef instead of ref [ref will only get you a reference to the Input component, use innerRef to get a reference to the DOM input (for things like focus management).]
                  innerRef={(input) => { this.textInput = input }} />
-          <Tooltip style={styles.clearableTooltip}
+          {/* <Tooltip style={styles.clearableTooltip}
                    placement="left"
                    isOpen={showClearHint}
                    target={itemId}>
             Clearable
-          </Tooltip>
+          </Tooltip> */}
           <Button style={{...this.state.editOn ? styles.editOnButton : styles.transparentButton, ...styles.inputFont}}
                   onClick={this.enableEdit}>
             <span className="glyphicon glyphicon-pencil"

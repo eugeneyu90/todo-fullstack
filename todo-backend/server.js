@@ -3,8 +3,16 @@ const express = require('express')
 const app = express()
 const bodyParser = require('body-parser')
 const bcrypt = require('bcrypt')
-//Import the jwt library
 const jwt = require('jsonwebtoken')
+
+// require the mongoose models
+const User = require('./models/User');
+const Todo = require('./models/Todo')
+const ObjectId = require('mongoose').Types.ObjectId; 
+
+
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth').OAuth2Strategy;
 
 const port = process.argv[2] || 8181
 
@@ -36,120 +44,178 @@ function authorize(req, res, next) {
     }
   })
 }
-// require the mongoose model from Users.js
-const User = require('./models/User');
+const saltRounds = 10
+const secretkey = "secretkey"
+
+
 
 // Create instance of Mongoose and connect to our local
 // MongoDB database at the directory specified earilier.
-const mongoose = require('mongoose');
-mongoose.connect('mongodb://localhost/todos');
+const mongoose = require('mongoose')
+mongoose.connect('mongodb://localhost/todos')
 
 // Tell Mongoose to use ES6 Promises for its promises
 mongoose.Promise = global.Promise;
 
 // Log to console any errors or a successful connection.
 const db = mongoose.connection;
-db.on('error', console.error.bind(console, 'connection error:'));
+db.on('error', console.error.bind(console, 'connection error:'))
 db.once('open', () => {
 	console.log("Connected to db at /data/db/")
-});
+})
+
+app.post('/login', (req, res) => {
+  const { username, password } = req.body
+
+  // Or by username:
+
+  User.findOne({"username": username})
+    .then(user => {
+      // console.log(user)
+      // if(user.length > 0) {
+        // console.log(user.hash)
+        bcrypt.compare(password, user.hash)
+          .then((result) => {
+            // console.log(result)
+            if(result) {
+              //If we have a valid user, create jwt token with
+              //the secret key
+              let token = jwt.sign({
+                username
+              }, secretkey)
+              //send the token back to the user
+              res.json({ 
+                token,
+                fname: user.fname
+              })
+            }
+            //if the result is false, send back a null token
+            else res.json({token: null})
+        })
+      //If we didn't find the user, send back a null token
+      // } else {
+      //   res.json({token: null, msg: 'Incorrect Username...'})
+      // } 
+    })
+    .catch(err => {
+        res.json({
+          success: false,
+          msg: 'Incorrect Request'
+        })
+    })
+})
 
 
-app.get('/usertodos', (req, res) => {
-  const 
+app.get('/usertodos', authorize, (req, res) => {
+  const username = req.decoded.username
+  // console.log(username)
+  // let userData = db.collection(username)
+
+  // userData.find().toArray().then(todos => {
+    db.collection(username).find().toArray().then(todos => {
+    res.json({
+      todos: todos
+    })
+  })
 })
 
 //Register a new user
 app.post('/register', (req, res) => {
-  console.log(req.body)
-  const { fname, lname, email, password } = req.body
+  // console.log(req)
+  const { fname, lname, username, password } = req.body
   // create an instance of the User
   // note: it hasn't been saved to the database yet
-  let newUser = User(
-    {
-      fname: fname,
-      lname: lname,
-      email: email,
-      todos: [
-        { 
-          id: 1, 
-          task: 'Install Todo App', 
-          completeBy: null, 
-          completed: null, 
-          isComplete: false, 
-          isCleared: false 
-        }
-      ]
-    }
-  )
-  // // save the newly created User in the database
-  newUser.save()
-    .then(User => {
-        console.log(`User [${User.fname}] created.`)
-    })
-    .catch(err => {
+  bcrypt.hash(password, saltRounds)
+  .then((hash) => {
+    let newUser = User(
+      {
+        fname: fname,
+        lname: lname,
+        username: username,
+        hash: hash,
+      }
+    )
+    // // save the newly created User in the database
+    newUser.save()
+      .then(User => {
+        db.createCollection(User.username)
+        db.collection(User.username).insert(
+          new Todo({ task: 'Install the Todo App'})
+        )
+        console.log(`User [${User.username}] created.`)
+      })
+      .catch(err => {
         console.log(err);
+      })
+    res.json({
+      success: true
     })
-
-  res.send("You have been registered!!!!")
+  })
 })  
 
-
-
-// // look for all users in the database
-// User.find({})
-//   .then(users => {
-//       //returns an array of objects
-//       console.log(users);
-//   })
-//   .catch(err => {
-//       console.log(err);
-//   })
-
-// // Search through all and get a summary
-// User.find({})
-//   .then(users => {
-//       // loop through the array of users
-//       for(let i = 0; i < users.length; i++){
-//           // each user has a summary method attached to it
-//           users[i].summary();
-//       }
-//   })
-//   .catch(err => {
-//       console.log(err);
-//   })
-
-// // Or by address:
-// User.find({"email": "yu.eugene90@gmail.com"})
-//   .then(users => {
-//       console.log(users);
-//   })
-//   .catch(err => {
-//       console.log(err);
-//   })
-
-
-// Update
-let update = {
-  email:'yu.123456789@gmail.com'
-}
-
-let query = {"_id":"5aa035e89a9c3e2b089cc830"};
-
-// new:true means that the findOneAndUpdate method will return the updated object instead of the original
-// runValidators:true forces mongoose to run the validators specified in the schema (like required or max/mins), normally these only run on save and not on update
-let options = {
-  new:true,
-  runValidators:true
-}
-
-User.findOneAndUpdate(query, update, options)
-  .then(updatedUser => {
-      console.log(updatedUser._id + ' has been updated...');
+//Add new Todo
+app.post('/addtodo', authorize, (req, res) => {
+  const username = req.decoded.username
+  const { task } = req.body
+  db.collection(username).insert(new Todo({ task: task }))
+  res.json({
+    success: true
   })
-  .catch(err => {
-      console.log(err);
-  })
+})
+
+app.post('/updatetodo', authorize, (req, res) => {
+  const username = req.decoded.username
+  console.log(req.body)
+  const { _id, task, completeBy, completed, isComplete, isCleared } = req.body
+
+  db.collection(username).findOneAndUpdate(
+    {_id: new ObjectId(_id)}, 
+    { task: task,
+      completeBy: completeBy,
+      completed: completed,
+      isComplete: isComplete,
+      isCleared: isCleared
+    })
+      .then(updatedTodo => {
+        res.send(updatedTodo)
+        console.log(updatedTodo)
+      })
+      .catch(error => {
+        console.log(error)
+      })
+})
+
+app.post('/clearcompleted', authorize, (req, res) => {
+  const username = req.decoded.username
+
+  db.collection(username).deleteMany({isComplete: true})
+    .then(response => {
+      res.send(response)
+      console.log(response)
+    })
+})
+
+// // Update
+// let update = {
+//   username:'yu.123456789@gmail.com'
+// }
+
+// let query = {"_id":"5aa0471fd046a9248c75d16e"};
+
+// // new:true means that the findOneAndUpdate method will return the updated object instead of the original
+// // runValidators:true forces mongoose to run the validators specified in the schema (like required or max/mins), normally these only run on save and not on update
+// let options = {
+//   new:true,
+//   runValidators:true
+// }
+
+// User.findOneAndUpdate(query, update, options)
+//   .then(updatedUser => {
+//       console.log(updatedUser._id + ' has been updated...');
+//   })
+//   .catch(err => {
+//       console.log(err);
+//   })
 
 // Delete a User
 // User.findOneAndRemove({"email":"yu.2@gmail.com"})
@@ -160,14 +226,6 @@ User.findOneAndUpdate(query, update, options)
 //   .catch(err => {
 //       console.log(err);
 //   })
-
-
-app.get('/usertodos', (req, res) => {
-  //return user todos
-  const user = req.body.user
-
- 
-})
 
 
   app.listen(port, () => {
